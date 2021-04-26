@@ -1,5 +1,10 @@
 # CSC-545-Team-Project
 
+To run this project:
+    Open in Netbeans 8.2 or later
+    Add ojdbc8.jar and j-calendar1-1.4.jar to library
+    After clicking run, following instructions below
+
 The main menu has five options, you can: view your weekly meal plan, view your shopping list based on the weekly meal plan, add or edit items, add or edit recipes, or exit the system. The system runs on a seven day cycle, resetting every Sunday at 12:00AM.  
 
 The first option, to view your weekly meal plan, is where you will assign the recipe to a certain day and category (breakfast, lunch or dinner). From here, you can view all 21 meals of the week, as well as edit them or view the recipe. [You can also select which meal plan you want to follow for that week.]  

@@ -6,8 +6,13 @@
 package termproject;
 
 import java.awt.Color;
+import java.sql.Connection;
 import javax.swing.DefaultListModel;
 import javax.swing.DefaultListSelectionModel;
+import javax.swing.JOptionPane;
+import oracle.jdbc.OraclePreparedStatement;
+import oracle.jdbc.OracleResultSet;
+import javax.swing.JOptionPane;
 
 /**
  *
@@ -18,8 +23,14 @@ public class WindowFrame extends javax.swing.JFrame {
     /**
      * Creates new form ConnectionWindow
      */
+    // YANG
+    Connection conn = null;
+    OraclePreparedStatement pst = null;
+    OracleResultSet rs = null;
+    
     DefaultListModel dlm = new DefaultListModel();
     boolean makingRecipe = false;
+    boolean newItem = false;
     public WindowFrame() {
         initComponents();
         recipeItemsList.setSelectionMode(0);
@@ -733,6 +744,11 @@ public class WindowFrame extends javax.swing.JFrame {
         jScrollPane4.setViewportView(recipeItemsList);
 
         selectItemToAddToRecipe.setFont(new java.awt.Font("Tahoma", 1, 14)); // NOI18N
+        selectItemToAddToRecipe.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                selectItemToAddToRecipeActionPerformed(evt);
+            }
+        });
 
         measurementTypeComboBox.setFont(new java.awt.Font("Tahoma", 1, 12)); // NOI18N
         measurementTypeComboBox.setModel(new javax.swing.DefaultComboBoxModel<>(new String[] { "Unit(s)", "Cup(s)", "Tablespoon(s)", "Teaspoon(s)", "Can(s)" }));
@@ -929,6 +945,12 @@ public class WindowFrame extends javax.swing.JFrame {
         addEditItemsPanel.setBackground(new java.awt.Color(96, 147, 172));
         addEditItemsPanel.setBorder(javax.swing.BorderFactory.createLineBorder(new java.awt.Color(0, 102, 102), 8));
 
+        addEditItemsComboBox.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                addEditItemsComboBoxActionPerformed(evt);
+            }
+        });
+
         editItemButton.setFont(new java.awt.Font("Tahoma", 1, 14)); // NOI18N
         editItemButton.setForeground(new java.awt.Color(0, 102, 102));
         editItemButton.setText("Edit");
@@ -1068,7 +1090,12 @@ public class WindowFrame extends javax.swing.JFrame {
         });
 
         itemCategoryComboBox.setFont(new java.awt.Font("Tahoma", 1, 14)); // NOI18N
-        itemCategoryComboBox.setModel(new javax.swing.DefaultComboBoxModel<>(new String[] { "Grain", "Fruit", "Dairy", "Vegetable", "Meat/Protein", "Sugar/Fat", "Seasoning/Spice" }));
+        itemCategoryComboBox.setModel(new javax.swing.DefaultComboBoxModel<>(new String[] { "Alcohol", "Dairy", "Fat", "Fruit", "Grain", "Meat", "Sauce", "Sweetener", "Vegetable", "Vinegar" }));
+        itemCategoryComboBox.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                itemCategoryComboBoxActionPerformed(evt);
+            }
+        });
 
         itemFoodGroupLabel.setFont(new java.awt.Font("Tahoma", 1, 14)); // NOI18N
         itemFoodGroupLabel.setText("Food Group");
@@ -1320,15 +1347,50 @@ public class WindowFrame extends javax.swing.JFrame {
 
     private void viewMealPlanButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_viewMealPlanButtonActionPerformed
         // TODO add your handling code here:
+        setMeals("Sunday");
         //display all 7 days in a list to the side. Each list brings up the breakfast, lunch, dinner for the day
-        //need to get the 7 days from the DB
         mainMenuPanel.setVisible(false);
         subtitleLabel.setText("Meal Plan");
         weeklyMealPlanPanel.setVisible(true);
-        
-        
     }//GEN-LAST:event_viewMealPlanButtonActionPerformed
 
+    int[] recipeIDs = new int[3];
+    private void setMeals(String day){
+        
+        conn = DBConnect.setupConnection();
+        String[] recipeNames = new String[3];
+        int index = 0;
+        try
+        {   
+            String sqlStatement = "select recipe_id,recipe_name, recipe_category from c##DawsonC2021.recipe where recipe_id in (select recipe_id from c##DawsonC2021.uses where meal_id in (select meal_id from c##DawsonC2021.meal where meal_day = ?)) order by recipe_category";
+            
+            pst = (OraclePreparedStatement) conn.prepareStatement(sqlStatement);
+            pst.setString(1, day);
+            
+            rs = (OracleResultSet) pst.executeQuery();
+            //To access the data, use the method NEXT to access all rows in rs, one row at a time
+            while (rs.next())
+            {
+                //add the items from the DB to the combobox
+                recipeNames[index] = rs.getString("recipe_name");
+                recipeIDs[index++] = rs.getInt("recipe_id");
+            }            
+        }
+        catch (Exception e)
+        {
+            JOptionPane.showMessageDialog(null, e);
+        }
+        finally
+        {
+            DBConnect.close(rs);
+            DBConnect.close(pst);
+            DBConnect.close(conn);
+        }
+        breakfastTextField.setText(recipeNames[0]);
+        lunchTextField.setText(recipeNames[1]);
+        dinnerTextField.setText(recipeNames[2]);
+    }
+    
     private void viewShoppingListButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_viewShoppingListButtonActionPerformed
         // TODO: get all the items in fridge - items needed, display that amount if > 0
         shoppingListPanel.setVisible(true);
@@ -1337,8 +1399,38 @@ public class WindowFrame extends javax.swing.JFrame {
     }//GEN-LAST:event_viewShoppingListButtonActionPerformed
 
     private void addEditItemsButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_addEditItemsButtonActionPerformed
-        // TODO: fill the comboBox with all items from database: addEditItemsComboBox
+        addEditItemsComboBox.removeAllItems();
+        // fill the comboBox with all items from database: addEditItemsComboBox
         
+        // set up db connection
+        conn = DBConnect.setupConnection();
+        try
+        {   
+            String sqlStatement = "select ITEM_NAME from c##DawsonC2021.item";
+            
+            pst = (OraclePreparedStatement) conn.prepareStatement(sqlStatement);
+         
+            rs = (OracleResultSet) pst.executeQuery();
+            // Now rs contains the rows from the ITEM_NAME column from the ITEM table. 
+            //To access the data, use the method NEXT to access all rows in rs, one row at a time
+            while (rs.next())
+            {
+                //add the items from the DB to the combobox
+                //System.out.println(rs.getString("ITEM_NAME"));
+                addEditItemsComboBox.addItem(rs.getString("ITEM_NAME"));
+        
+            }
+        }
+        catch (Exception e)
+        {
+            JOptionPane.showMessageDialog(null, e);
+        }
+        finally
+        {
+            DBConnect.close(rs);
+            DBConnect.close(pst);
+            DBConnect.close(conn);
+        }
         //clears all the fields
         addEditItemsPanel.setVisible(true);
         mainMenuPanel.setVisible(false);
@@ -1355,8 +1447,7 @@ public class WindowFrame extends javax.swing.JFrame {
     }//GEN-LAST:event_addEditItemsButtonActionPerformed
 
     private void addEditRecipeButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_addEditRecipeButtonActionPerformed
-        //TODO: add all recipes to the combobox: selectRecipeToEditComboBox
-        //
+
         //clear the textArea that lists all the added items
         //clear all the fields
         subtitleLabel.setText("Add or Edit Recipes");
@@ -1364,22 +1455,35 @@ public class WindowFrame extends javax.swing.JFrame {
         addEditRecipesPanel.setVisible(true);
         
         dlm.clear();
-        //this will be data from the database
-        selectRecipeToEditComboBox.addItem("Apple");
-        selectRecipeToEditComboBox.addItem("Bacon");
-        selectRecipeToEditComboBox.addItem("Cheese");
-        selectRecipeToEditComboBox.addItem("Fruit");
-        selectRecipeToEditComboBox.addItem("Jello");
-        selectRecipeToEditComboBox.addItem("Apple");
-        selectRecipeToEditComboBox.addItem("Bacon");
-        selectRecipeToEditComboBox.addItem("Cheese");
-        selectRecipeToEditComboBox.addItem("Fruit");
-        selectRecipeToEditComboBox.addItem("Jello");
-        selectRecipeToEditComboBox.addItem("Apple");
-        selectRecipeToEditComboBox.addItem("Bacon");
-        selectRecipeToEditComboBox.addItem("Cheese");
-        selectRecipeToEditComboBox.addItem("Fruit");
-        selectRecipeToEditComboBox.addItem("Jello");
+        //add all recipes to the combobox: selectRecipeToEditComboBox
+        selectRecipeToEditComboBox.removeAllItems();
+        conn = DBConnect.setupConnection();
+        try
+        {   
+            String sqlStatement = "select RECIPE_NAME from c##DawsonC2021.recipe";
+
+            pst = (OraclePreparedStatement) conn.prepareStatement(sqlStatement);
+
+            rs = (OracleResultSet) pst.executeQuery();
+            // Now rs contains the rows from the ITEM_RECIPE column from the RECIPE table. 
+            //To access the data, use the method NEXT to access all rows in rs, one row at a time
+            while (rs.next())
+            {
+                //add the items from the DB to the combobox
+                selectRecipeToEditComboBox.addItem(rs.getString("RECIPE_NAME"));
+
+            }
+        }
+        catch (Exception e)
+        {
+            JOptionPane.showMessageDialog(null, e);
+        }
+        finally
+        {
+            DBConnect.close(rs);
+            DBConnect.close(pst);
+            DBConnect.close(conn);
+        }
     }//GEN-LAST:event_addEditRecipeButtonActionPerformed
 
     private void addItemToRecipeActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_addItemToRecipeActionPerformed
@@ -1448,10 +1552,82 @@ public class WindowFrame extends javax.swing.JFrame {
     }//GEN-LAST:event_deleteRecipeButtonActionPerformed
 
     private void editSelectedRecipeButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_editSelectedRecipeButtonActionPerformed
-
         //use all the old information to repopulate the addRecipePanel with the info
         //put all the items into the choice on the addRecipePanel: selectItemToAddToRecipe
         //they can make changes from there
+        
+        //store the recipe ID
+        int RECIPE_ID = 0;
+        //set up database connection for recipe
+        conn = DBConnect.setupConnection();
+        try
+        {   
+            String sqlStatement = "SELECT * FROM c##DawsonC2021.recipe WHERE c##DawsonC2021.recipe.RECIPE_NAME = ?";
+            pst = (OraclePreparedStatement) conn.prepareStatement(sqlStatement);
+            pst.setString(1, selectRecipeToEditComboBox.getSelectedItem().toString());
+            rs = (OracleResultSet) pst.executeQuery();
+            // Now rs contains all the row info from the RECIPE table for the selected recipe.
+            // use rs.next to retrieve the item info
+            while (rs.next())
+            {
+                //fill up the textfields and comboboxes with the retrieved information
+                RECIPE_ID = rs.getInt("RECIPE_ID");
+                recipeNameTextField.setText(rs.getString("RECIPE_NAME"));
+                recipeTextArea.setText(rs.getString("INSTRUCTIONS"));
+                recipeCategoryTextField.setText(rs.getString("RECIPE_CATEGORY"));
+            }
+            
+        }
+        catch (Exception e)
+        {
+            JOptionPane.showMessageDialog(null, e);
+        }
+        finally
+        {
+            DBConnect.close(rs);
+            DBConnect.close(pst);
+            DBConnect.close(conn);
+        }
+        
+        //set up database connection to get all the recipe items
+        conn = DBConnect.setupConnection();
+        try
+        {   
+            String sqlStatement = "SELECT c##DawsonC2021.item.ITEM_NAME, c##DawsonC2021.item.QUANTITY " +
+            "FROM c##DawsonC2021.has " +
+            "JOIN c##DawsonC2021.item ON c##DawsonC2021.has.ITEM_ID=c##DawsonC2021.item.ITEM_ID " +
+            "WHERE c##DawsonC2021.has.RECIPE_ID = ?";
+            pst = (OraclePreparedStatement) conn.prepareStatement(sqlStatement);
+            //System.out.println(RECIPE_ID);
+            pst.setInt(1, RECIPE_ID);
+            rs = (OracleResultSet) pst.executeQuery();
+            // Now rs contains all the row info from the items in the selected recipe.
+            // use rs.next to retrieve the item info
+            while (rs.next())
+            {
+                //fill up the recipeItemsList
+                String item = rs.getString("ITEM_NAME");
+                String quant = ""+rs.getInt("QUANTITY");
+                //String measurement = (String)measurementTypeComboBox.getSelectedItem();
+                dlm.addElement(item+" ("+quant+")");
+            }
+            
+        }
+        catch (Exception e)
+        {
+            JOptionPane.showMessageDialog(null, e);
+        }
+        finally
+        {
+            DBConnect.close(rs);
+            DBConnect.close(pst);
+            DBConnect.close(conn);
+        }
+        
+        //TO DO: fill up the item list
+        
+        addRecipePanel.setVisible(true);
+        addEditRecipesPanel.setVisible(false);
         
     }//GEN-LAST:event_editSelectedRecipeButtonActionPerformed
 
@@ -1462,29 +1638,70 @@ public class WindowFrame extends javax.swing.JFrame {
 
     private void createNewItemButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_createNewItemButtonActionPerformed
         // TODO add your handling code here:
+        //update new item to be true so we can do INSERT statement on submit
+        newItem = true;
         nameOfNewItemTextField.setText("");
-        amtOfNewItemTextField.setText("");
-        caloriesTextField.setText("");
-        sugarTextField.setText("");
-        proteinTextField.setText("");
-        sodiumTextField.setText("");
-        fatTextField.setText("");
+        amtOfNewItemTextField.setText("0");
+        caloriesTextField.setText("0");
+        sugarTextField.setText("0");
+        proteinTextField.setText("0");
+        sodiumTextField.setText("0");
+        fatTextField.setText("0");
         addItemPanel.setVisible(true);
         addEditItemsPanel.setVisible(false);
         
     }//GEN-LAST:event_createNewItemButtonActionPerformed
 
     private void submitItemButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_submitItemButtonActionPerformed
-        // TODO: save data to the database, add checks for data
+        //check the is not empty, display an error message if so
+        if(nameOfNewItemTextField.getText().equals("") || amtOfNewItemTextField.getText().equals("") || caloriesTextField.getText().equals("") || sugarTextField.getText().equals("") || proteinTextField.getText().equals("") || sodiumTextField.getText().equals("") || fatTextField.getText().equals("")){
+                //display error message to the user
+                JOptionPane.showMessageDialog(null, "Please enter in values for all items, or leave the default values", "ERROR", JOptionPane.INFORMATION_MESSAGE);
+                return;
+        }
+        
         if(makingRecipe){
             String name = nameOfNewItemTextField.getText();
-            double amt = (double)Integer.parseInt(amtOfNewItemTextField.getText());
+            float amt = Float.parseFloat(amtOfNewItemTextField.getText());
             String category = (String)itemCategoryComboBox.getSelectedItem();
             int calories = Integer.parseInt(caloriesTextField.getText());
             int sugar = Integer.parseInt(sugarTextField.getText());
             int protien = Integer.parseInt(proteinTextField.getText());
             int sodium = Integer.parseInt(sodiumTextField.getText());
             int fat = Integer.parseInt(fatTextField.getText());
+            //save data to the database, add checks for data   
+            nameOfNewItemTextField.setText("0");
+            amtOfNewItemTextField.setText("0");
+            caloriesTextField.setText("0");
+            sugarTextField.setText("0");
+            proteinTextField.setText("0");
+            sodiumTextField.setText("0");
+            fatTextField.setText("0");
+            addRecipePanel.setVisible(true);
+            addItemPanel.setVisible(false);
+            makingRecipe = false;
+        } 
+        //check to see if the create new item button was clicked
+        else if(newItem){
+            //loop through the addEditItemsComboBox to check that the entry is unique, prevents SQL constraint error that crashes the program
+             //use toLowerCase() since it must be unique regardless of case
+            for(int i = 0; i < addEditItemsComboBox.getItemCount(); i++){
+                if(nameOfNewItemTextField.getText().toLowerCase().equals(addEditItemsComboBox.getItemAt(i).toLowerCase())){
+                    //display error message to the user
+                    JOptionPane.showMessageDialog(null, ""+addEditItemsComboBox.getItemAt(i)+" already exists.\n"
+                            +"Please enter a unique value for the name of the item", "ERROR", JOptionPane.INFORMATION_MESSAGE);
+                    return;
+                }
+            }
+            String name = nameOfNewItemTextField.getText();
+            float amt = Float.parseFloat(amtOfNewItemTextField.getText());
+            String category = (String)itemCategoryComboBox.getSelectedItem();
+            int calories = Integer.parseInt(caloriesTextField.getText());
+            int sugar = Integer.parseInt(sugarTextField.getText());
+            int protein = Integer.parseInt(proteinTextField.getText());
+            int sodium = Integer.parseInt(sodiumTextField.getText());
+            int fat = Integer.parseInt(fatTextField.getText());
+            //save data to the database, add checks for data   
             nameOfNewItemTextField.setText("");
             amtOfNewItemTextField.setText("");
             caloriesTextField.setText("");
@@ -1492,15 +1709,175 @@ public class WindowFrame extends javax.swing.JFrame {
             proteinTextField.setText("");
             sodiumTextField.setText("");
             fatTextField.setText("");
-            addRecipePanel.setVisible(true);
+            newItem = false;
+            
+            //set up database connection for nutrition insert
+            conn = DBConnect.setupConnection();
+            try
+            {   
+                String sqlStatement = "INSERT INTO C##DAWSONC2021.nutrition (Calories, Sugar, Sodium, Protein, Fat) VALUES (?, ?, ?, ?, ?)";
+                
+                //System.out.println(sqlStatement);
+                pst = (OraclePreparedStatement) conn.prepareStatement(sqlStatement);
+                pst.setInt(1, calories);
+                pst.setInt(2, sugar);
+                pst.setInt(3, sodium);
+                pst.setInt(4, protein);
+                pst.setInt(5, fat);
+                rs = (OracleResultSet) pst.executeQuery();
+            }
+            catch (Exception e)
+            {
+                JOptionPane.showMessageDialog(null, e);
+            }
+            finally
+            {
+                DBConnect.close(rs);
+                DBConnect.close(pst);
+                DBConnect.close(conn);
+            }
+            
+            //set up database connection for item insert
+            conn = DBConnect.setupConnection();
+            try
+            {   
+                String sqlStatement = "INSERT INTO C##DAWSONC2021.item (ITEM_NAME, ITEM_GROUP, QUANTITY) VALUES (?, ?, ?)";
+                
+                //System.out.println(sqlStatement);
+                pst = (OraclePreparedStatement) conn.prepareStatement(sqlStatement);
+                pst.setString(1, name);
+                pst.setString(2, category);
+                pst.setFloat(3, amt);
+                rs = (OracleResultSet) pst.executeQuery();
+            }
+            catch (Exception e)
+            {
+                JOptionPane.showMessageDialog(null, e);
+            }
+            finally
+            {
+                DBConnect.close(rs);
+                DBConnect.close(pst);
+                DBConnect.close(conn);
+            }
+            
+            //set up database connection for nutrition_id update
+            conn = DBConnect.setupConnection();
+            try
+            {   
+                String sqlStatement = "UPDATE C##DAWSONC2021.item SET NUTRITION_ID = (select max(NUTRITION_ID) from C##DAWSONC2021.nutrition) WHERE ITEM_NAME = ?";
+                
+                //System.out.println(sqlStatement);
+                pst = (OraclePreparedStatement) conn.prepareStatement(sqlStatement);
+                pst.setString(1, name);
+                rs = (OracleResultSet) pst.executeQuery();
+            }
+            catch (Exception e)
+            {
+                JOptionPane.showMessageDialog(null, e);
+            }
+            finally
+            {
+                DBConnect.close(rs);
+                DBConnect.close(pst);
+                DBConnect.close(conn);
+            }
             addItemPanel.setVisible(false);
-            makingRecipe = false;
-        }
-        else{
-            addEditItemsPanel.setVisible(true);
+            //refresh the addEditItem screen
+            addEditItemsButton.doClick();
+        } 
+        else{ //this handles edit item button click
+            String name = nameOfNewItemTextField.getText();
+            float amt = Float.parseFloat(amtOfNewItemTextField.getText());
+            String category = (String)itemCategoryComboBox.getSelectedItem();
+            int calories = Integer.parseInt(caloriesTextField.getText());
+            int sugar = Integer.parseInt(sugarTextField.getText());
+            int protein = Integer.parseInt(proteinTextField.getText());
+            int sodium = Integer.parseInt(sodiumTextField.getText());
+            int fat = Integer.parseInt(fatTextField.getText());
+            //save data to the database
+            
+            //update the item table with the 
+            String oldName = addEditItemsComboBox.getSelectedItem().toString();
+            conn = DBConnect.setupConnection();
+            try
+            {   
+                String sqlStatement = "UPDATE C##DAWSONC2021.item SET ITEM_NAME = ?, ITEM_GROUP = ?, QUANTITY = ? WHERE ITEM_NAME = ?";
+
+                pst = (OraclePreparedStatement) conn.prepareStatement(sqlStatement);
+                pst.setString(1, name);
+                pst.setString(2, category);
+                pst.setFloat(3, amt);
+                pst.setString(4, oldName);
+                rs = (OracleResultSet) pst.executeQuery();
+            }
+            catch (Exception e)
+            {
+                JOptionPane.showMessageDialog(null, e);
+            }
+            finally
+            {
+                DBConnect.close(rs);
+                DBConnect.close(pst);
+                DBConnect.close(conn);
+            }
+
+            //init the nutritionID
+            int nutritionID = 0;
+            //get the nutritionID
+            conn = DBConnect.setupConnection();
+            try
+            {   
+                String sqlStatement = "SELECT NUTRITION_ID from C##DAWSONC2021.item WHERE ITEM_NAME = ?";
+
+                pst = (OraclePreparedStatement) conn.prepareStatement(sqlStatement);
+                pst.setString(1, name);
+                rs = (OracleResultSet) pst.executeQuery();
+                while (rs.next())
+                {
+                    nutritionID = rs.getInt("NUTRITION_ID");
+                }
+            }
+            catch (Exception e)
+            {
+                JOptionPane.showMessageDialog(null, e);
+            }
+            finally
+            {
+                DBConnect.close(rs);
+                DBConnect.close(pst);
+                DBConnect.close(conn);
+            }
+
+            conn = DBConnect.setupConnection();
+            try
+            {   
+                String sqlStatement = "UPDATE C##DAWSONC2021.nutrition SET CALORIES = ?, SUGAR = ?, PROTEIN = ?, SODIUM = ?, FAT = ? WHERE NUTRITION_ID = ?";
+
+                pst = (OraclePreparedStatement) conn.prepareStatement(sqlStatement);
+                pst.setInt(1, calories);
+                pst.setInt(2, sugar);
+                pst.setInt(3, protein);
+                pst.setInt(4, sodium);
+                pst.setInt(5, fat);
+                pst.setInt(6, nutritionID);
+                rs = (OracleResultSet) pst.executeQuery();
+            }
+            catch (Exception e)
+            {
+                JOptionPane.showMessageDialog(null, e);
+            }
+            finally
+            {
+                DBConnect.close(rs);
+                DBConnect.close(pst);
+                DBConnect.close(conn);
+            }
             addItemPanel.setVisible(false);
+            //sent them back to the addEditItems screen 
+            addEditItemsButton.doClick();   
         }
-        
+         
     }//GEN-LAST:event_submitItemButtonActionPerformed
 
     private void cancelItemButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_cancelItemButtonActionPerformed
@@ -1518,51 +1895,163 @@ public class WindowFrame extends javax.swing.JFrame {
     }//GEN-LAST:event_cancelItemButtonActionPerformed
 
     private void editItemButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_editItemButtonActionPerformed
-        // TODO: repopulate the fields with old values(all fields in sumbitItemButtonActionPerformed function)
+        // repopulate the fields with old values(all fields in sumbitItemButtonActionPerformed function)
         // based on what is selected in addEditItemsComboBox
+      
+        //set up database connection for item
+        conn = DBConnect.setupConnection();
+        try
+        {   
+            //System.out.println(addEditItemsComboBox.getSelectedItem().toString());
+            String sqlStatement = "SELECT c##DawsonC2021.item.ITEM_NAME, c##DawsonC2021.item.ITEM_GROUP, c##DawsonC2021.item.QUANTITY, c##DawsonC2021.nutrition.CALORIES, c##DawsonC2021.nutrition.SUGAR, c##DawsonC2021.nutrition.PROTEIN, c##DawsonC2021.nutrition.SODIUM, c##DawsonC2021.nutrition.FAT\n" +
+            "FROM c##DawsonC2021.item " +
+            "JOIN c##DawsonC2021.nutrition ON c##DawsonC2021.item.NUTRITION_ID=c##DawsonC2021.nutrition.NUTRITION_ID " +
+            "WHERE c##DawsonC2021.item.ITEM_NAME = ?";
+            //System.out.println(sqlStatement);
+            pst = (OraclePreparedStatement) conn.prepareStatement(sqlStatement);
+            pst.setString(1, addEditItemsComboBox.getSelectedItem().toString());
+            rs = (OracleResultSet) pst.executeQuery();
+            // Now rs contains all the row info from the ITEM table for the 1 selected item.
+            // use rs.next to retrieve the item info
+            while (rs.next())
+            {
+                //fill up the textfields and comboboxes with the retrieved information
+                nameOfNewItemTextField.setText(rs.getString("ITEM_NAME"));
+                amtOfNewItemTextField.setText(rs.getString("QUANTITY"));
+                String itemCategory = rs.getString("ITEM_GROUP");
+                switch(itemCategory){
+                    case "Alcohol":
+                        itemCategoryComboBox.setSelectedIndex(0);
+                        break;
+                    case "Dairy":
+                        itemCategoryComboBox.setSelectedIndex(1);
+                        break;
+                    case "Fat":
+                        itemCategoryComboBox.setSelectedIndex(2);
+                        break;
+                    case "Fruit":
+                        itemCategoryComboBox.setSelectedIndex(3);
+                        break;
+                    case "Grain":
+                        itemCategoryComboBox.setSelectedIndex(4);
+                        break;
+                    case "Meat":
+                        itemCategoryComboBox.setSelectedIndex(5);
+                        break;
+                    case "Sauce":
+                        itemCategoryComboBox.setSelectedIndex(6);
+                        break;
+                    case "Sweetener":
+                        itemCategoryComboBox.setSelectedIndex(7);
+                        break;
+                    case "Vegetable":
+                        itemCategoryComboBox.setSelectedIndex(8);
+                        break;
+                    case "Vinegar":
+                        itemCategoryComboBox.setSelectedIndex(9);
+                        break;
+                    default:
+                        System.out.println("Error: The ITEM_GROUP was not containted in the itemCategoryComboBox");
+                        break;
+                }
+                
+                caloriesTextField.setText(""+rs.getInt("CALORIES"));
+                sugarTextField.setText(""+rs.getInt("SUGAR"));
+                proteinTextField.setText(""+rs.getInt("PROTEIN"));
+                sodiumTextField.setText(""+rs.getInt("SODIUM"));
+                fatTextField.setText(""+rs.getInt("FAT"));
+            }
+            
+        }
+        catch (Exception e)
+        {
+            JOptionPane.showMessageDialog(null, e);
+        }
+        finally
+        {
+            DBConnect.close(rs);
+            DBConnect.close(pst);
+            DBConnect.close(conn);
+        }
+        addItemPanel.setVisible(true);
+        addEditItemsPanel.setVisible(false);
     }//GEN-LAST:event_editItemButtonActionPerformed
 
     private void deleteItemButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_deleteItemButtonActionPerformed
         // TODO:  delete the selected item in the combobox (addEditItemsComboBox) from database
+        //set up database connection for nutrition
+        conn = DBConnect.setupConnection();
+        try
+        {   
+            //delete the row of the currently selected item nutrition info from the table
+            String sqlStatement = "DELETE FROM c##DawsonC2021.nutrition WHERE NUTRITION_ID = (SELECT NUTRITION_ID FROM c##DawsonC2021.item WHERE ITEM_NAME = ?)";
+            
+            //System.out.println(sqlStatement);
+            pst = (OraclePreparedStatement) conn.prepareStatement(sqlStatement);
+            pst.setString(1, addEditItemsComboBox.getSelectedItem().toString());
+            rs = (OracleResultSet) pst.executeQuery();
+        }
+        catch (Exception e)
+        {
+            JOptionPane.showMessageDialog(null, e);
+        }
+        finally
+        {
+            DBConnect.close(rs);
+            DBConnect.close(pst);
+            DBConnect.close(conn);
+        }
+        
+        //set up database connection for item
+        conn = DBConnect.setupConnection();
+        try
+        {   
+            //delete the row of the currently selected item from the table
+            String sqlStatement = "DELETE FROM c##DawsonC2021.item WHERE ITEM_NAME = ?";
+            
+            //System.out.println(sqlStatement);
+            pst = (OraclePreparedStatement) conn.prepareStatement(sqlStatement);
+            pst.setString(1, addEditItemsComboBox.getSelectedItem().toString());
+            rs = (OracleResultSet) pst.executeQuery();
+        }
+        catch (Exception e)
+        {
+            JOptionPane.showMessageDialog(null, e);
+        }
+        finally
+        {
+            DBConnect.close(rs);
+            DBConnect.close(pst);
+            DBConnect.close(conn);
+        }
+        
+        //refresh the addEditItem screen
+        addEditItemsButton.doClick();
     }//GEN-LAST:event_deleteItemButtonActionPerformed
 
     private void selectMealDayComboBoxActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_selectMealDayComboBoxActionPerformed
         // TODO add your handling code here:
         switch(selectMealDayComboBox.getSelectedIndex()){
             case 0:
-                breakfastTextField.setText("Day 0");
-                lunchTextField.setText("Day 0");
-                dinnerTextField.setText("Day 0");
+                setMeals("Sunday");
                 break;
             case 1:
-                breakfastTextField.setText("Day 1");
-                lunchTextField.setText("Day 1");
-                dinnerTextField.setText("Day 1");
+                setMeals("Monday");
                 break;
             case 2:
-                breakfastTextField.setText("Day 2");
-                lunchTextField.setText("Day 2");
-                dinnerTextField.setText("Day 2");
+                setMeals("Tuesday");
                 break;
             case 3:
-                breakfastTextField.setText("Day 3");
-                lunchTextField.setText("Day 3");
-                dinnerTextField.setText("Day 3");
+                setMeals("Wednesday");
                 break;
             case 4:
-                breakfastTextField.setText("Day 4");
-                lunchTextField.setText("Day 4");
-                dinnerTextField.setText("Day 4");
+                setMeals("Thursday");
                 break;
             case 5:
-                breakfastTextField.setText("Day 5");
-                lunchTextField.setText("Day 5");
-                dinnerTextField.setText("Day 5");
+                setMeals("Friday");
                 break;
             default:
-                breakfastTextField.setText("Day 6");
-                lunchTextField.setText("Day 6");
-                dinnerTextField.setText("Day 6");
+                setMeals("Saturday");
                 break;
         }
         
@@ -1677,6 +2166,7 @@ public class WindowFrame extends javax.swing.JFrame {
         mainMenuPanel.setVisible(true);
         addEditRecipesPanel.setVisible(false);
         subtitleLabel.setText("Main Menu");
+        makingRecipe = false;
     }//GEN-LAST:event_cancelAddEditRecipeButtonActionPerformed
 
     private void cancelAddEditItemButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_cancelAddEditItemButtonActionPerformed
@@ -1697,6 +2187,49 @@ public class WindowFrame extends javax.swing.JFrame {
         // TODO add your handling code here:
         System.exit(0);
     }//GEN-LAST:event_exitApplicationActionPerformed
+
+    private void addEditItemsComboBoxActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_addEditItemsComboBoxActionPerformed
+        // TODO add your handling code here:
+    }//GEN-LAST:event_addEditItemsComboBoxActionPerformed
+
+    private void itemCategoryComboBoxActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_itemCategoryComboBoxActionPerformed
+        // TODO add your handling code here:
+    }//GEN-LAST:event_itemCategoryComboBoxActionPerformed
+
+    private void selectItemToAddToRecipeActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_selectItemToAddToRecipeActionPerformed
+        // TODO add your handling code here:
+        
+        //fill input the correct quantity when they choose an item to add
+        // set up db connection
+        conn = DBConnect.setupConnection();
+        try
+        {   
+            String sqlStatement = "select QUANTITY from c##DawsonC2021.item WHERE ITEM_NAME = ?";
+            
+            pst = (OraclePreparedStatement) conn.prepareStatement(sqlStatement);
+            pst.setString(1, selectItemToAddToRecipe.getSelectedItem().toString());
+         
+            rs = (OracleResultSet) pst.executeQuery();
+            // Now rs contains the rows from the ITEM_NAME column from the ITEM table. 
+            //To access the data, use the method NEXT to access all rows in rs, one row at a time
+            while (rs.next())
+            {
+                //add the correct quantity to recipeQuantity
+                recipeQuantity.setText(rs.getString("QUANTITY"));
+       
+            }
+        }
+        catch (Exception e)
+        {
+            JOptionPane.showMessageDialog(null, e);
+        }
+        finally
+        {
+            DBConnect.close(rs);
+            DBConnect.close(pst);
+            DBConnect.close(conn);
+        }
+    }//GEN-LAST:event_selectItemToAddToRecipeActionPerformed
 
     /**
      * @param args the command line arguments

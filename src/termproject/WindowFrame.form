@@ -1262,6 +1262,9 @@
                   <StringArray count="0"/>
                 </Property>
               </Properties>
+              <Events>
+                <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="selectItemToAddToRecipeActionPerformed"/>
+              </Events>
               <AuxValues>
                 <AuxValue name="JavaCodeGenerator_TypeParameters" type="java.lang.String" value="&lt;String&gt;"/>
               </AuxValues>
@@ -1522,6 +1525,9 @@
                   <StringArray count="0"/>
                 </Property>
               </Properties>
+              <Events>
+                <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="addEditItemsComboBoxActionPerformed"/>
+              </Events>
               <AuxValues>
                 <AuxValue name="JavaCodeGenerator_TypeParameters" type="java.lang.String" value="&lt;String&gt;"/>
               </AuxValues>
@@ -1855,17 +1861,23 @@
                   <Font name="Tahoma" size="14" style="1"/>
                 </Property>
                 <Property name="model" type="javax.swing.ComboBoxModel" editor="org.netbeans.modules.form.editors2.ComboBoxModelEditor">
-                  <StringArray count="7">
-                    <StringItem index="0" value="Grain"/>
-                    <StringItem index="1" value="Fruit"/>
-                    <StringItem index="2" value="Dairy"/>
-                    <StringItem index="3" value="Vegetable"/>
-                    <StringItem index="4" value="Meat/Protein"/>
-                    <StringItem index="5" value="Sugar/Fat"/>
-                    <StringItem index="6" value="Seasoning/Spice"/>
+                  <StringArray count="10">
+                    <StringItem index="0" value="Alcohol"/>
+                    <StringItem index="1" value="Dairy"/>
+                    <StringItem index="2" value="Fat"/>
+                    <StringItem index="3" value="Fruit"/>
+                    <StringItem index="4" value="Grain"/>
+                    <StringItem index="5" value="Meat"/>
+                    <StringItem index="6" value="Sauce"/>
+                    <StringItem index="7" value="Sweetener"/>
+                    <StringItem index="8" value="Vegetable"/>
+                    <StringItem index="9" value="Vinegar"/>
                   </StringArray>
                 </Property>
               </Properties>
+              <Events>
+                <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="itemCategoryComboBoxActionPerformed"/>
+              </Events>
               <AuxValues>
                 <AuxValue name="JavaCodeGenerator_TypeParameters" type="java.lang.String" value="&lt;String&gt;"/>
               </AuxValues>
